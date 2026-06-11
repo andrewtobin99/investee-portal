@@ -56,6 +56,8 @@ export interface SubmissionRequest {
   updated_at: string | null;
   /** Populated when selected with `workflow_statuses(*)`. */
   workflow_statuses?: WorkflowStatus | null;
+  /** Populated when selected with `investees(...)` (admin views show this). */
+  investees?: { id: string; company_name: string } | null;
 }
 
 export interface DocumentRecord {

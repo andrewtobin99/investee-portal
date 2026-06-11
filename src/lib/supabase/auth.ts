@@ -43,3 +43,51 @@ export async function getCurrentInvestee(): Promise<Investee | null> {
   // Partial column selection; cast through unknown to our domain type.
   return data as unknown as Investee | null;
 }
+
+export type PortalRole = "investee" | "admin" | "none";
+
+/**
+ * Resolve the current user's portal role from DB tables (not JWT claims).
+ * Investee takes precedence; admin is any `user_client_roles` row with
+ * role='admin'. Used for role-aware routing.
+ */
+export async function getUserRole(): Promise<PortalRole> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "none";
+
+  const { data: investee } = await supabase
+    .from("investees")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (investee) return "investee";
+
+  const { data: adminRole } = await supabase
+    .from("user_client_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("role", "admin")
+    .limit(1)
+    .maybeSingle();
+  if (adminRole) return "admin";
+
+  return "none";
+}
+
+/** Display name from the profile row, for the header. */
+export async function getProfileDisplayName(): Promise<string | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .maybeSingle();
+  return (data?.display_name as string | null) ?? null;
+}

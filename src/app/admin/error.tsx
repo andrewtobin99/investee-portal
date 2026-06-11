@@ -3,9 +3,9 @@
 import { RouteError } from "@/components/shared/route-error";
 import type { AppErrorKind } from "@/lib/utils/errors";
 
-export default function InvesteeError(props: {
+export default function AdminError(props: {
   error: Error & { kind?: AppErrorKind; digest?: string };
   reset: () => void;
 }) {
-  return <RouteError {...props} homePath="/dashboard" />;
+  return <RouteError {...props} homePath="/admin/dashboard" />;
 }

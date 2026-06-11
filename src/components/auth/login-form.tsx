@@ -17,7 +17,8 @@ import { Spinner } from "@/components/ui/spinner";
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectedFrom = searchParams.get("redirectedFrom") || "/dashboard";
+  // Default to root, which dispatches to the correct portal by role.
+  const redirectedFrom = searchParams.get("redirectedFrom") || "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

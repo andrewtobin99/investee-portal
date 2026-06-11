@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Building2 } from "lucide-react";
-import { getUser, getCurrentInvestee } from "@/lib/supabase/auth";
+import { getUser, getCurrentInvestee, getUserRole } from "@/lib/supabase/auth";
 import { UserMenu } from "@/components/dashboard/user-menu";
 
 /**
@@ -20,11 +20,13 @@ export default async function InvesteeLayout({
   const user = await getUser();
   if (!user) redirect("/login");
 
-  // Investee-only portal: a signed-in user with no investee record (e.g. an
-  // admin) is bounced to /no-access rather than shown an empty, broken portal.
-  // /no-access lives outside this route group so it isn't gated here.
+  // Investee-only route group. A signed-in user with no investee record is
+  // routed by role: admins to their portal, everyone else to /no-access.
   const investee = await getCurrentInvestee();
-  if (!investee) redirect("/no-access");
+  if (!investee) {
+    const role = await getUserRole();
+    redirect(role === "admin" ? "/admin/dashboard" : "/no-access");
+  }
 
   return (
     <div className="min-h-screen bg-background">

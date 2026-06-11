@@ -6,14 +6,24 @@ import { cn } from "@/lib/utils/cn";
 import { formatDate, formatRelative, isOverdue } from "@/lib/utils/format";
 import type { SubmissionRequest } from "@/types/database";
 
-export function SubmissionCard({ submission }: { submission: SubmissionRequest }) {
+export function SubmissionCard({
+  submission,
+  basePath = "/submissions",
+  showCompany = false,
+}: {
+  submission: SubmissionRequest;
+  /** Detail-route base; admin views pass "/admin/submissions". */
+  basePath?: string;
+  /** Show the investee company name (admin views). */
+  showCompany?: boolean;
+}) {
   const status = submission.workflow_statuses;
   const open = status?.slug !== "approved" && status?.slug !== "rejected";
   const overdue = open && isOverdue(submission.due_date);
 
   return (
     <Link
-      href={`/submissions/${submission.id}`}
+      href={`${basePath}/${submission.id}`}
       className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <Card className="group transition-colors hover:border-primary/40 hover:bg-muted/30">
@@ -25,6 +35,11 @@ export function SubmissionCard({ submission }: { submission: SubmissionRequest }
                 <span className="text-xs font-medium text-red-600">Overdue</span>
               ) : null}
             </div>
+            {showCompany && submission.investees?.company_name ? (
+              <p className="mt-1.5 truncate text-xs font-medium text-muted-foreground">
+                {submission.investees.company_name}
+              </p>
+            ) : null}
             <h3 className="mt-1.5 truncate font-medium">{submission.title}</h3>
             {submission.description ? (
               <p className="mt-0.5 truncate text-sm text-muted-foreground">

@@ -41,12 +41,15 @@ export function DocumentManager({
   uploadedBy,
   initialDocuments,
   canEdit = true,
+  canManageAllDocuments = false,
 }: {
   submissionRequestId: string;
   clientId: string;
   uploadedBy: string;
   initialDocuments: DocumentRecord[];
   canEdit?: boolean;
+  /** Admins may delete any file in their client. */
+  canManageAllDocuments?: boolean;
 }) {
   const [documents, setDocuments] = useState<DocumentRecord[]>(initialDocuments);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -211,6 +214,7 @@ export function DocumentManager({
       <DocumentList
         documents={documents}
         currentUserId={uploadedBy}
+        canManageAll={canManageAllDocuments}
         onDeleted={onDeleted}
       />
     </div>

@@ -59,10 +59,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Signed-in users shouldn't sit on the login page.
+  // Signed-in users shouldn't sit on the login page. Send them to the root,
+  // which dispatches to the correct portal by role.
   if (user && pathname === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/";
     url.search = "";
     return NextResponse.redirect(url);
   }

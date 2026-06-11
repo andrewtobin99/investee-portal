@@ -16,11 +16,14 @@ import type { DocumentRecord } from "@/types/database";
 export function DocumentList({
   documents,
   currentUserId,
+  canManageAll = false,
   onDeleted,
 }: {
   documents: DocumentRecord[];
   /** Used to gate the delete affordance to files the user uploaded. */
   currentUserId: string;
+  /** Admins may delete any file in their client (RLS permits it). */
+  canManageAll?: boolean;
   onDeleted: (id: string) => void;
 }) {
   const [busy, setBusy] = useState<Record<string, "download" | "delete">>({});
@@ -134,7 +137,7 @@ export function DocumentList({
                     <Download className="h-4 w-4" />
                   )}
                 </Button>
-                {doc.uploaded_by === currentUserId ? (
+                {canManageAll || doc.uploaded_by === currentUserId ? (
                   <Button
                     variant="ghost"
                     size="icon"

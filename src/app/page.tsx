@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
+import { getUserRole } from "@/lib/supabase/auth";
 
-/** The portal has no marketing root — send everyone to the dashboard. The
- *  middleware redirects unauthenticated users on to /login from there. */
-export default function RootPage() {
-  redirect("/dashboard");
+/**
+ * Role-aware entry point. The middleware guarantees the user is authenticated
+ * before they reach here; we then route to the right portal by DB role.
+ */
+export default async function RootPage() {
+  const role = await getUserRole();
+  if (role === "admin") redirect("/admin/dashboard");
+  if (role === "investee") redirect("/dashboard");
+  redirect("/no-access");
 }

@@ -510,6 +510,98 @@ begin
   end if;
 end $$;
 
+-- ----------------------------------------------------------------------------
+-- 9. Admin write access. Investees keep their own-row policies; client admins
+--    additionally get status updates and full document management. (Re-run this
+--    section on an existing project — every statement is drop/replace-safe.)
+-- ----------------------------------------------------------------------------
+
+-- Admins may update submissions in their client(s) (e.g. change status).
+drop policy if exists "admin update submissions" on public.submission_requests;
+create policy "admin update submissions" on public.submission_requests
+  for update to authenticated
+  using (public.is_client_admin(client_id))
+  with check (public.is_client_admin(client_id));
+
+-- documents insert: investee on own submission, OR client admin.
+drop policy if exists "insert own docs" on public.documents;
+create policy "insert docs" on public.documents
+  for insert to authenticated with check (
+    uploaded_by = auth.uid()
+    and (
+      submission_request_id in (
+        select id from public.submission_requests sr
+        where sr.investee_id in (select public.current_investee_ids())
+      )
+      or exists (
+        select 1 from public.submission_requests sr
+        where sr.id = documents.submission_request_id
+          and public.is_client_admin(sr.client_id)
+      )
+    )
+  );
+
+-- documents delete: own upload, OR client admin.
+drop policy if exists "delete own docs" on public.documents;
+drop policy if exists "delete docs" on public.documents;
+create policy "delete docs" on public.documents
+  for delete to authenticated using (
+    uploaded_by = auth.uid()
+    or exists (
+      select 1 from public.submission_requests sr
+      where sr.id = documents.submission_request_id
+        and public.is_client_admin(sr.client_id)
+    )
+  );
+
+-- storage upload: investee on own submission, OR client admin (replaces §5).
+drop policy if exists "docs upload" on storage.objects;
+create policy "docs upload" on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'submission-documents'
+    and exists (
+      select 1 from public.submission_requests sr
+      where sr.id::text = (storage.foldername(name))[2]
+        and sr.client_id::text = (storage.foldername(name))[1]
+        and (sr.investee_id in (select public.current_investee_ids())
+             or public.is_client_admin(sr.client_id))
+    )
+  );
+
+-- storage delete: own object, OR client admin (replaces §5).
+drop policy if exists "docs delete" on storage.objects;
+create policy "docs delete" on storage.objects
+  for delete to authenticated using (
+    bucket_id = 'submission-documents'
+    and (
+      owner = auth.uid()
+      or exists (
+        select 1 from public.submission_requests sr
+        where sr.id::text = (storage.foldername(name))[2]
+          and public.is_client_admin(sr.client_id)
+      )
+    )
+  );
+
+-- Auto-log status changes into submission_status_history (records who/when),
+-- so the client only has to update status_id.
+create or replace function public.log_submission_status_change()
+returns trigger language plpgsql security definer
+set search_path = public as $$
+begin
+  if new.status_id is distinct from old.status_id then
+    insert into public.submission_status_history (submission_request_id, status_id, changed_by)
+    values (new.id, new.status_id, auth.uid());
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_submission_status_change on public.submission_requests;
+create trigger on_submission_status_change
+  after update on public.submission_requests
+  for each row execute function public.log_submission_status_change();
+
 -- ============================================================================
 -- Done. Generate frontend types (optional) with:
 --   npx supabase gen types typescript --project-id <ref> --schema public

@@ -4,6 +4,7 @@ import type {
   CommentRecord,
   DocumentRecord,
   SubmissionRequest,
+  WorkflowStatus,
 } from "@/types/database";
 
 /**
@@ -99,4 +100,27 @@ export async function getExternalVisibilityTypeId(): Promise<string | null> {
     .maybeSingle();
   if (error) return null;
   return (data?.id as string) ?? null;
+}
+
+/** The visibility type id for "internal" (admin-only) comments. */
+export async function getInternalVisibilityTypeId(): Promise<string | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("comment_visibility_types")
+    .select("id")
+    .eq("slug", "internal")
+    .maybeSingle();
+  if (error) return null;
+  return (data?.id as string) ?? null;
+}
+
+/** All workflow statuses ordered for the admin status picker. */
+export async function getWorkflowStatuses(): Promise<WorkflowStatus[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("workflow_statuses")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  if (error) throw new PortalError(toAppError(error));
+  return (data ?? []) as unknown as WorkflowStatus[];
 }

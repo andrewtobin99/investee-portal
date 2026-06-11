@@ -25,18 +25,30 @@ export function CommentThread({
   submissionRequestId,
   currentUserId,
   externalVisibilityTypeId,
+  internalVisibilityTypeId = null,
   initialComments,
+  currentUserRole = "investee",
+  canChooseVisibility = false,
 }: {
   submissionRequestId: string;
   currentUserId: string;
   externalVisibilityTypeId: string | null;
+  /** Required for admins posting internal notes. */
+  internalVisibilityTypeId?: string | null;
   initialComments: CommentRecord[];
+  /** Role of the signed-in user, for optimistic author labelling. */
+  currentUserRole?: "investee" | "admin";
+  /** Admins may choose external (investee-visible) vs internal (admin-only). */
+  canChooseVisibility?: boolean;
 }) {
   const [comments, setComments] = useState<CommentRecord[]>(initialComments);
   const [body, setBody] = useState("");
+  const [visibility, setVisibility] = useState<"external" | "internal">("external");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const isInternal = canChooseVisibility && visibility === "internal";
 
   // Realtime: append comments authored by others as they arrive.
   useEffect(() => {
@@ -84,7 +96,10 @@ export function CommentThread({
     const text = body.trim();
     if (!text || submitting) return;
 
-    if (!externalVisibilityTypeId) {
+    const visibilityTypeId = isInternal
+      ? internalVisibilityTypeId
+      : externalVisibilityTypeId;
+    if (!visibilityTypeId) {
       setError("Comment visibility isn't configured. Contact your administrator.");
       return;
     }
@@ -99,9 +114,9 @@ export function CommentThread({
       submission_request_id: submissionRequestId,
       author_id: currentUserId,
       body: text,
-      visibility_type_id: externalVisibilityTypeId,
+      visibility_type_id: visibilityTypeId,
       created_at: new Date().toISOString(),
-      author: { id: currentUserId, display_name: "You", role: "investee" },
+      author: { id: currentUserId, display_name: "You", role: currentUserRole },
     };
     setComments((c) => [...c, optimistic]);
     setBody("");
@@ -113,7 +128,7 @@ export function CommentThread({
         submission_request_id: submissionRequestId,
         author_id: currentUserId,
         body: text,
-        visibility_type_id: externalVisibilityTypeId,
+        visibility_type_id: visibilityTypeId,
       })
       .select("*, author:comment_author(id, display_name, role)")
       .single();
@@ -137,13 +152,20 @@ export function CommentThread({
       {comments.length === 0 ? (
         <EmptyState
           title="No comments yet"
-          description="Messages from your administrator will appear here. You can reply at any time."
+          description={
+            currentUserRole === "admin"
+              ? "Start the conversation, or leave an internal note for your team."
+              : "Messages from your administrator will appear here. You can reply at any time."
+          }
         />
       ) : (
         <ul className="space-y-3">
           {comments.map((c) => {
             const mine = c.author_id === currentUserId;
             const isAdmin = c.author?.role === "admin";
+            // Only admins ever see internal comments (RLS), so only flag them there.
+            const internal =
+              canChooseVisibility && c.visibility_type_id === internalVisibilityTypeId;
             return (
               <li
                 key={c.id}
@@ -152,23 +174,35 @@ export function CommentThread({
                 <div
                   className={cn(
                     "max-w-[85%] rounded-lg px-3 py-2 text-sm",
-                    mine
-                      ? "bg-primary text-primary-foreground"
-                      : "border bg-card text-foreground",
+                    internal
+                      ? "border border-amber-200 bg-amber-50 text-foreground"
+                      : mine
+                        ? "bg-primary text-primary-foreground"
+                        : "border bg-card text-foreground",
                   )}
                 >
                   <div className="mb-1 flex items-center gap-1.5">
                     <span
                       className={cn(
                         "text-xs font-medium",
-                        mine ? "text-primary-foreground/90" : "text-foreground",
+                        mine && !internal
+                          ? "text-primary-foreground/90"
+                          : "text-foreground",
                       )}
                     >
-                      {mine ? "You" : c.author?.display_name || "Administrator"}
+                      {mine
+                        ? "You"
+                        : c.author?.display_name ||
+                          (isAdmin ? "Administrator" : "Investee")}
                     </span>
                     {isAdmin && !mine ? (
                       <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                         <ShieldCheck className="h-3 w-3" aria-hidden /> Admin
+                      </span>
+                    ) : null}
+                    {internal ? (
+                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Internal
                       </span>
                     ) : null}
                   </div>
@@ -176,7 +210,9 @@ export function CommentThread({
                   <p
                     className={cn(
                       "mt-1 text-[10px]",
-                      mine ? "text-primary-foreground/70" : "text-muted-foreground",
+                      mine && !internal
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground",
                     )}
                   >
                     {formatDateTime(c.created_at)}
@@ -206,9 +242,46 @@ export function CommentThread({
           aria-label="Add a comment"
           className="flex w-full resize-y rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
+        {canChooseVisibility ? (
+          <div
+            role="radiogroup"
+            aria-label="Comment visibility"
+            className="inline-flex rounded-md border p-0.5 text-xs"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!isInternal}
+              onClick={() => setVisibility("external")}
+              className={cn(
+                "rounded px-2 py-1 font-medium",
+                !isInternal ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+              )}
+            >
+              External
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={isInternal}
+              onClick={() => setVisibility("internal")}
+              className={cn(
+                "rounded px-2 py-1 font-medium",
+                isInternal ? "bg-amber-500 text-white" : "text-muted-foreground",
+              )}
+            >
+              Internal
+            </button>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            Visible to your administrator · ⌘/Ctrl + Enter to send
+            {currentUserRole === "admin"
+              ? isInternal
+                ? "Internal note — the investee can't see this"
+                : "Visible to the investee"
+              : "Visible to your administrator"}{" "}
+            · ⌘/Ctrl + Enter to send
           </span>
           <Button type="submit" size="sm" disabled={submitting || !body.trim()}>
             <Send className="h-4 w-4" />
