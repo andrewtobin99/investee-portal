@@ -114,6 +114,24 @@ export async function getInternalVisibilityTypeId(): Promise<string | null> {
   return (data?.id as string) ?? null;
 }
 
+/** Investees the current admin can assign requests to (RLS scopes to their
+ *  client[s]). Returns client_id so the caller can set it on new submissions. */
+export async function getInvestees(): Promise<
+  { id: string; company_name: string; client_id: string }[]
+> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("investees")
+    .select("id, company_name, client_id")
+    .order("company_name", { ascending: true });
+  if (error) throw new PortalError(toAppError(error));
+  return (data ?? []) as unknown as {
+    id: string;
+    company_name: string;
+    client_id: string;
+  }[];
+}
+
 /** All workflow statuses ordered for the admin status picker. */
 export async function getWorkflowStatuses(): Promise<WorkflowStatus[]> {
   const supabase = createClient();

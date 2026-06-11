@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { getSubmissionRequests } from "@/lib/supabase/queries";
 import { StatsOverview } from "@/components/dashboard/stats-overview";
 import { SubmissionList } from "@/components/dashboard/submission-list";
 import { STATUS_CONFIG } from "@/components/shared/status-badge";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import type { WorkflowStatusSlug } from "@/types/database";
 
@@ -36,11 +38,16 @@ export default async function AdminDashboardPage({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Submissions</h1>
-        <p className="text-sm text-muted-foreground">
-          Review and manage submission requests across your investees.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Submissions</h1>
+          <p className="text-sm text-muted-foreground">
+            Review and manage submission requests across your investees.
+          </p>
+        </div>
+        <Link href="/admin/submissions/new" className={cn(buttonVariants())}>
+          <Plus className="h-4 w-4" /> New request
+        </Link>
       </div>
 
       <StatsOverview submissions={all} />

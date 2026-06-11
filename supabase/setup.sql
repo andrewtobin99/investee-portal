@@ -516,6 +516,12 @@ end $$;
 --    section on an existing project — every statement is drop/replace-safe.)
 -- ----------------------------------------------------------------------------
 
+-- Admins may create submissions for their client(s).
+drop policy if exists "admin insert submissions" on public.submission_requests;
+create policy "admin insert submissions" on public.submission_requests
+  for insert to authenticated
+  with check (public.is_client_admin(client_id));
+
 -- Admins may update submissions in their client(s) (e.g. change status).
 drop policy if exists "admin update submissions" on public.submission_requests;
 create policy "admin update submissions" on public.submission_requests
