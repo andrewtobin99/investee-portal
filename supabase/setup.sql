@@ -314,9 +314,27 @@ grant select on public.comment_author to authenticated;
 -- 5. Storage: private bucket + path-scoped policies
 --    Path strategy: {client_id}/{submission_request_id}/{filename}
 -- ----------------------------------------------------------------------------
-insert into storage.buckets (id, name, public)
-values ('submission-documents', 'submission-documents', false)
-on conflict (id) do nothing;
+-- Private bucket with server-enforced size (25 MB) + MIME allowlist, so the
+-- client-side validation in FileUploadZone can't simply be bypassed.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'submission-documents', 'submission-documents', false,
+  26214400,
+  array[
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/csv',
+    'image/png',
+    'image/jpeg'
+  ]
+)
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "docs read" on storage.objects;
 create policy "docs read" on storage.objects
@@ -607,6 +625,45 @@ drop trigger if exists on_submission_status_change on public.submission_requests
 create trigger on_submission_status_change
   after update on public.submission_requests
   for each row execute function public.log_submission_status_change();
+
+-- ----------------------------------------------------------------------------
+-- 10. Hardening: scope profile visibility to same-client, and stop users from
+--     escalating their own profiles.is_admin. (Re-run safe.)
+-- ----------------------------------------------------------------------------
+
+-- Client(s) the current user belongs to (as investee or via any role).
+create or replace function public.current_user_client_ids()
+returns setof uuid language sql security definer stable
+set search_path = public as $$
+  select client_id from public.investees
+    where user_id = auth.uid() and deleted_at is null
+  union
+  select client_id from public.user_client_roles where user_id = auth.uid()
+$$;
+
+-- Profiles: own row, or users who share a client. Replaces the open §4 policy
+-- that exposed every display_name/is_admin across tenants.
+drop policy if exists "read profiles" on public.profiles;
+create policy "read profiles" on public.profiles
+  for select to authenticated using (
+    id = auth.uid()
+    or exists (
+      select 1 from public.investees i
+      where i.user_id = profiles.id
+        and i.client_id in (select public.current_user_client_ids())
+    )
+    or exists (
+      select 1 from public.user_client_roles ucr
+      where ucr.user_id = profiles.id
+        and ucr.client_id in (select public.current_user_client_ids())
+    )
+  );
+
+-- Prevent privilege self-escalation: users may update only display_name on
+-- their own profile. is_admin/created_at are off-limits at the column level
+-- (RLS still gates which row). Managed by admins/service role instead.
+revoke update on public.profiles from authenticated;
+grant update (display_name) on public.profiles to authenticated;
 
 -- ============================================================================
 -- Done. Generate frontend types (optional) with:
