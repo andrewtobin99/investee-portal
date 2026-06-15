@@ -70,6 +70,7 @@ export default async function AdminSubmissionDetailPage({
             submissionId={submission.id}
             currentStatusId={submission.status_id}
             statuses={statuses}
+            hasDocuments={documents.length > 0}
           />
         </CardContent>
       </Card>

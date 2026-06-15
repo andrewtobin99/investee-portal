@@ -19,18 +19,29 @@ export function StatusChanger({
   submissionId,
   currentStatusId,
   statuses,
+  hasDocuments,
 }: {
   submissionId: string;
   currentStatusId: string;
   statuses: WorkflowStatus[];
+  /** When false, changing to "approved" is blocked until a file is uploaded. */
+  hasDocuments: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(currentStatusId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const approvedStatusId = statuses.find((s) => s.slug === "approved")?.id;
+
   async function onChange(next: string) {
     if (next === value || saving) return;
+
+    if (next === approvedStatusId && !hasDocuments) {
+      setError("At least one document must be uploaded before approving this submission.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
 

@@ -6,10 +6,12 @@ import {
   getDocuments,
   getExternalVisibilityTypeId,
   getSubmissionRequest,
+  getWorkflowStatuses,
 } from "@/lib/supabase/queries";
 import { SubmissionHeader } from "@/components/submissions/submission-header";
 import { DocumentManager } from "@/components/submissions/document-manager";
 import { CommentThread } from "@/components/submissions/comment-thread";
+import { SubmitButton } from "@/components/submissions/submit-button";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import {
   Card,
@@ -28,17 +30,19 @@ export default async function SubmissionDetailPage({
   params: { id: string };
 }) {
   // Fetched in parallel; each throws a PortalError handled by error.tsx.
-  const [user, submission, documents, comments, externalVisibilityTypeId] =
+  const [user, submission, documents, comments, externalVisibilityTypeId, allStatuses] =
     await Promise.all([
       getUser(),
       getSubmissionRequest(params.id),
       getDocuments(params.id),
       getComments(params.id),
       getExternalVisibilityTypeId(),
+      getWorkflowStatuses(),
     ]);
 
   const slug = submission.workflow_statuses?.slug;
   const canEdit = !LOCKED_STATUSES.has(slug ?? "");
+  const submittedStatus = allStatuses.find((s) => s.slug === "submitted");
 
   return (
     <div className="space-y-6">
@@ -50,6 +54,18 @@ export default async function SubmissionDetailPage({
       </Link>
 
       <SubmissionHeader submission={submission} />
+
+      {/* Submit control — only shown while the submission is awaiting investee action */}
+      {slug === "draft" && submittedStatus ? (
+        <Card>
+          <CardContent className="p-4">
+            <SubmitButton
+              submissionId={submission.id}
+              submittedStatusId={submittedStatus.id}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">

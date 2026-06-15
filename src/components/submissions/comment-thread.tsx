@@ -175,7 +175,7 @@ export function CommentThread({
                   className={cn(
                     "max-w-[85%] rounded-lg px-3 py-2 text-sm",
                     internal
-                      ? "border border-amber-200 bg-amber-50 text-foreground"
+                      ? "border border-[#E3D5F2] bg-[#F6F1FC] text-foreground"
                       : mine
                         ? "bg-primary text-primary-foreground"
                         : "border bg-card text-foreground",
@@ -196,12 +196,12 @@ export function CommentThread({
                           (isAdmin ? "Administrator" : "Investee")}
                     </span>
                     {isAdmin && !mine ? (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-[#EEEAF6] px-1.5 py-0.5 text-[10px] font-medium text-[#6D30A7]">
                         <ShieldCheck className="h-3 w-3" aria-hidden /> Admin
                       </span>
                     ) : null}
                     {internal ? (
-                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                      <span className="rounded-full bg-[#EEE7F7] px-1.5 py-0.5 text-[10px] font-medium text-[#6D30A7]">
                         Internal
                       </span>
                     ) : null}
@@ -267,7 +267,7 @@ export function CommentThread({
               onClick={() => setVisibility("internal")}
               className={cn(
                 "rounded px-2 py-1 font-medium",
-                isInternal ? "bg-amber-500 text-white" : "text-muted-foreground",
+                isInternal ? "bg-[#6D30A7] text-white" : "text-muted-foreground",
               )}
             >
               Internal
